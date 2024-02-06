@@ -4,8 +4,20 @@ import http from 'http';
 import path from 'path';
 import {fileURLToPath} from 'url';
 import * as helpers from '../helpers/helpers.js'
+
 //import {Controller} from "./entities/controller.js";
 import db from 'mariadb';
+
+function padTo2Digits(num: number) {
+    return num.toString().padStart(2, '0');
+}
+function format(date: Date) {
+    return [
+        padTo2Digits(date.getDate()),
+        padTo2Digits(date.getMonth() + 1),
+        date.getFullYear(),
+    ].join('.');
+}
 
 // get current filename and directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +25,8 @@ const __dirname = path.dirname(__filename);
 // setup our server data
 const PORT = 8000;
 const HOST = 'localhost';
+
+let date = new Date();
 
 // setup express
 const server_root = path.resolve(__dirname, '../public');
@@ -83,15 +97,15 @@ const clients: any[] = [
         "issuedBy": "Отделом УФМС России",
         "issueDate": "2015-10-05",
         "identificationNumber": "12345678901234567890",
-        "placeOfBirth": "Москва",
-        "residenceCity": "Москва",
+        "placeOfBirth": "1",
+        "residenceCity": "1",
         "residenceAddress": "ул. Пушкина, д. 10, кв. 5",
         "homePhone": "+7 (123) 456-78-90",
         "mobilePhone": "+7 (987) 654-32-10",
         "email": "ivanov@example.com",
-        "registrationCity": "Москва",
+        "registrationCity": "1",
         "maritalStatus": "single",
-        "citizenship": "Россия",
+        "citizenship": "1",
         "disability": "n",
         "pensioner": "n",
         "monthlyIncome": "1500",
@@ -102,6 +116,20 @@ const clients: any[] = [
 app.get('/', (req,res) => {
     res.render('main.hbs', {layout : 'index'});
 });
+app.get('/time_machine',(req,res) => {
+    // @ts-ignore
+    res.render('time_machine.hbs', {layout : 'index', date: format(date)});
+});
+app.post('/time_machine',(req,res) => {
+    const {time} = req.body
+    const dt = parseInt(time)
+    //
+    // TODO call DB to process each month of payments
+    //
+    date = new Date(date.getFullYear(), date.getMonth() + dt, date.getDate());
+    // @ts-ignore
+    res.render('time_machine.hbs', {layout : 'index', date: format(date)});
+});
 app.get('/add_client',async (req,res) => {
     const cities = await pool.query('select * from Cities');
     const countries = await pool.query('select * from Countries');
@@ -110,7 +138,7 @@ app.get('/add_client',async (req,res) => {
 app.post('/add_client', async (req, res) => {
     // Retrieve form data from request body
     const formData = Object.assign({}, req.body);
-    console.log(req.body);
+    // console.log(req.body);
 
     var cls = await pool.query('select * from Accounts;');
     const index = cls.findIndex((client: { passportSeries: any; passportNumber: any; identificationNumber: any; }) =>
@@ -118,10 +146,10 @@ app.post('/add_client', async (req, res) => {
         client.identificationNumber === formData.identificationNumber
     );
     if (index !== -1) {
-        return res.render('add_client.hbs', {layout : 'index', error: true});
+        return res.render('add_client.hbs', {layout : 'index', error: true, client: formData});
     }
 
-    pool.query('insert into Accounts(surname, name, patronymic, birthdate, passportSeries, passportNumber, issuedBy, issueDate, identificationNumber, placeOfBirth, residenceCity, residenceAddress, homePhone, mobilePhone, email, maritalStatus, citizenship, disability, pensioner, monthlyIncome, mil_status, place_of_work, work_role) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [formData.surname, formData.name, formData.patronymic, formData.birthdate, formData.passportSeries, formData.passportNumber, formData.issuedBy, formData.issueDate, formData.identificationNumber, formData.placeOfBirth, formData.residenceCity, formData.residenceAddress, formData.homePhone, formData.mobilePhone, formData.email, formData.maritalStatus, formData.citizenship, formData.disability, formData.pensioner, formData.monthlyIncome, formData.mil_status, formData.place_of_work, formData.work_role]);
+    await pool.query('insert into Accounts(surname, name, patronymic, birthdate, passportSeries, passportNumber, issuedBy, issueDate, identificationNumber, placeOfBirth, residenceCity, residenceAddress, homePhone, mobilePhone, email, maritalStatus, citizenship, disability, pensioner, monthlyIncome, mil_status, place_of_work, work_role) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [formData.surname, formData.name, formData.patronymic, formData.birthdate, formData.passportSeries, formData.passportNumber, formData.issuedBy, formData.issueDate, formData.identificationNumber, formData.placeOfBirth, formData.residenceCity, formData.residenceAddress, formData.homePhone, formData.mobilePhone, formData.email, formData.maritalStatus, formData.citizenship, formData.disability, formData.pensioner, formData.monthlyIncome, formData.mil_status, formData.place_of_work, formData.work_role]);
 
     res.render('add_client.hbs', {layout : 'index', error: false, client: formData});
 });
@@ -149,17 +177,30 @@ app.get('/accounts', async (req,res) => {
         layout : 'index',
         accounts: [
             {
-                "surname": "Иванов",
-                "name": "Иван",
-                "patronymic": "Иванович",
-                "debit": "1000",
-                "credit": "500",
-                "balance": "500",
+                "surname": "",
+                "name": "СФРБ",
+                "patronymic": "Банка",
+                "debit": "-0",
+                "credit": "+0",
+                "balance": "0",
+                "type": "Passive",
+                "balanceNo": "BBBB",
+                "clientNo": "00000",
+                "accountNo": "000",
+                "controlNo": "B"
+            },
+            {
+                "surname": "",
+                "name": "Касса",
+                "patronymic": "Банка",
+                "debit": "+0",
+                "credit": "-0",
+                "balance": "0",
                 "type": "Active",
-                "balanceNo": "XXXX",
-                "clientNo": "00001",
+                "balanceNo": "BBBB",
+                "clientNo": "00000",
                 "accountNo": "001",
-                "controlNo": "X"
+                "controlNo": "B"
             }
         ]
     });

@@ -54,11 +54,9 @@
         <label for="residenceCity" class="required">Город факт. проживания</label>
         <select id="residenceCity" name="residenceCity" required>
             <option value="">Выберите город</option>
-            <option value="1" {{#if (eq client.residenceCity '1')}}selected{{/if}}>Город 1</option>
-            <option value="2" {{#if (eq client.residenceCity '2')}}selected{{/if}}>Город 2</option>
-            <option value="3" {{#if (eq client.residenceCity '3')}}selected{{/if}}>Город 3</option>
-            <option value="4" {{#if (eq client.residenceCity '4')}}selected{{/if}}>Город 4</option>
-            <option value="5" {{#if (eq client.residenceCity '5')}}selected{{/if}}>Город 5</option>
+            {{#each cities}}
+                <option value="{{this.id_city}}" {{#if (eq ../client.residenceCity this.id_city)}}selected{{/if}}>{{this.name_city}}</option>
+            {{/each}}
         </select>
         <label for="residenceAddress" class="required">Адрес факт. проживания</label>
         <input value="{{client.residenceAddress}}" type="text" id="residenceAddress" name="residenceAddress" required>
@@ -77,10 +75,10 @@
     </div>
 
     <div class="form-group">
-        <label for="workPlace">Место работы</label>
-        <input value="{{client.workPlace}}" type="text" id="workPlace" name="workPlace">
-        <label for="position">Должность</label>
-        <input value="{{client.position}}" type="text" id="position" name="position">
+        <label for="place_of_work">Место работы</label>
+        <input value="{{client.place_of_work}}" type="text" id="place_of_work" name="place_of_work">
+        <label for="work_role">Должность</label>
+        <input value="{{client.work_role}}" type="text" id="work_role" name="work_role">
     </div>
 
 <!--    <div class="form-group">-->
@@ -108,15 +106,19 @@
         </select>
     </div>
 
+    <p>null here:{{#if (eq client.citizenship undefined)}}null{{else}}{{client.citizenship}}{{/if}}</p>
+
     <div class="form-group">
         <label for="citizenship" class="required">Гражданство</label>
         <select id="citizenship" name="citizenship" required>
             <option value="">Выберите гражданство</option>
-            <option value="1" {{#if (eq client.citizenship '1')}}selected{{/if}}>Гражданство 1</option>
-            <option value="2" {{#if (eq client.citizenship '2')}}selected{{/if}}>Гражданство 2</option>
-            <option value="3" {{#if (eq client.citizenship '3')}}selected{{/if}}>Гражданство 3</option>
+            {{#each countries}}
+                <option value="{{this.id_country}}" {{#if (eq ../client.citizenship this.id_country)}}selected{{/if}}>{{this.name_country}}</option>
+            {{/each}}
         </select>
     </div>
+
+    <p>null here:{{#if (eq client.citizenship undefined)}}null{{else}}{{client.citizenship}}{{/if}}</p>
 
     <div class="form-group">
         <label for="disability" class="required">Инвалидность</label>
@@ -141,12 +143,12 @@
     </div>
 
     <div class="form-group">
-        <label for="militaryService" class="required">Военнообязанный</label>
-        <input type="radio" id="militaryService_yes" name="militaryService" value="y" required
-               {{#if (eq client.militaryService 'y')}}checked{{/if}}>
+        <label for="mil_status" class="required">Военнообязанный</label>
+        <input type="radio" id="militaryService_yes" name="mil_status" value="y" required
+               {{#if (eq client.mil_status 'y')}}checked{{/if}}>
         <label for="militaryService_yes">Да</label>
-        <input type="radio" id="militaryService_no" name="militaryService" value="n"
-               {{#if (eq client.militaryService 'n')}}checked{{/if}}>
+        <input type="radio" id="militaryService_no" name="mil_status" value="n"
+               {{#if (eq client.mil_status 'n')}}checked{{/if}}>
         <label for="militaryService_no">Нет</label>
     </div>
 

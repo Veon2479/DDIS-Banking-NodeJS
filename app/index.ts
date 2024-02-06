@@ -34,6 +34,25 @@ app.use(express.json())
 app.use(express.static(server_root));
 app.use('/attachments', express.static(server_attachments))
 
+function convertMariadbTimestamp(mariadbTimestamp: string): string {
+    // Преобразование временной метки Mariadb в объект Date
+    const date: Date = new Date(mariadbTimestamp);
+
+    // Получение дня, месяца и года из объекта Date
+    const day: number = date.getDate();
+    const month: number = date.getMonth() + 1; // Месяцы в JavaScript начинаются с 0
+    const year: number = date.getFullYear();
+
+    // Форматирование дня, месяца и года с добавлением ведущих нулей, если нужно
+    const formattedDay: string = (day < 10) ? `0${day}` : day.toString();
+    const formattedMonth: string = (month < 10) ? `0${month}` : month.toString();
+
+    // Получение временной метки в формате dd/mm/yyyy
+    const formattedTimestamp: string = `${year}-${formattedMonth}-${formattedDay}`;
+
+    return formattedTimestamp;
+}
+
 //create db connection
 const pool = db.createPool({
     host: "192.168.56.103",
@@ -83,15 +102,18 @@ const clients: any[] = [
 app.get('/', (req,res) => {
     res.render('main.hbs', {layout : 'index'});
 });
-app.get('/add_client',(req,res) => {
-    res.render('add_client.hbs', {layout : 'index'});
+app.get('/add_client',async (req,res) => {
+    const cities = await pool.query('select * from Cities');
+    const countries = await pool.query('select * from Countries');
+    res.render('add_client.hbs', {layout : 'index', cities: cities, countries:countries});
 });
-app.post('/add_client', (req, res) => {
+app.post('/add_client', async (req, res) => {
     // Retrieve form data from request body
     const formData = Object.assign({}, req.body);
     console.log(req.body);
 
-    const index = clients.findIndex(client =>
+    var cls = await pool.query('select * from Accounts;');
+    const index = cls.findIndex((client: { passportSeries: any; passportNumber: any; identificationNumber: any; }) =>
         (client.passportSeries === formData.passportSeries && client.passportNumber === formData.passportNumber) ||
         client.identificationNumber === formData.identificationNumber
     );
@@ -99,14 +121,8 @@ app.post('/add_client', (req, res) => {
         return res.render('add_client.hbs', {layout : 'index', error: true});
     }
 
-    formData.id = parseInt(clients[clients.length - 1]?.id) + 1 ?? 1;
-    clients.push(formData);
+    pool.query('insert into Accounts(surname, name, patronymic, birthdate, passportSeries, passportNumber, issuedBy, issueDate, identificationNumber, placeOfBirth, residenceCity, residenceAddress, homePhone, mobilePhone, email, maritalStatus, citizenship, disability, pensioner, monthlyIncome, mil_status, place_of_work, work_role) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [formData.surname, formData.name, formData.patronymic, formData.birthdate, formData.passportSeries, formData.passportNumber, formData.issuedBy, formData.issueDate, formData.identificationNumber, formData.placeOfBirth, formData.residenceCity, formData.residenceAddress, formData.homePhone, formData.mobilePhone, formData.email, formData.maritalStatus, formData.citizenship, formData.disability, formData.pensioner, formData.monthlyIncome, formData.mil_status, formData.place_of_work, formData.work_role]);
 
-    // Process the form data as needed
-    // For example, you can access formData.mobilePhone, formData.surname, etc.
-
-    // Send a response back to the client
-    //res.status(200).send('Form submitted successfully!');
     res.render('add_client.hbs', {layout : 'index', error: false, client: formData});
 });
 
@@ -149,7 +165,7 @@ app.get('/accounts', async (req,res) => {
     });
 });
 app.get('/clients', async (req,res) => {
-    var sql = await pool.query('select Accounts.*, pob.name_city as pob, res.name_city as res, reg.name_city as reg, ctzn.name_country as ctzn from Accounts join Cities as pob on Accounts.placeOfBirth = pob.id_city join Cities as res on Accounts.residenceCity = res.id_city join Cities as reg on Accounts.registrationCity = reg.id_city join Countries as ctzn on Accounts.citizenship = ctzn.id_country;');
+    var sql = await pool.query('select Accounts.*, res.name_city as res, ctzn.name_country as ctzn from Accounts join Cities as res on Accounts.residenceCity = res.id_city join Countries as ctzn on Accounts.citizenship = ctzn.id_country;');
     sql.forEach((entry:any) => {
         var d:Date = new Date(entry.birthdate);
         entry.birthdate = d.toLocaleDateString();
@@ -167,54 +183,68 @@ app.get('/clients', async (req,res) => {
         clients: sql
     });
 });
-app.delete('/clients/:id', (req, res) => {
+app.delete('/clients/:id', async (req, res) => {
     const id = parseInt(req.params.id);
 
     console.log(`client delete request ${id}`)
 
-    // Find the index of the client with the specified ID
-    // const index = -1; // TODO db request clients.findIndex(client => client.id === id);
-    const index = clients.findIndex(client => parseInt(client.id) === id);
-    console.log(`index ${index}`)
+    var ids = await pool.query('select id from Accounts where id = ?;', id);
 
-    // If client with the specified ID is found, delete it
-    if (index !== -1) {
-        clients.splice(index, 1);
+    if (ids.length > 0) {
+        await pool.query('delete from Accounts where id = ?', id);
         res.render('clients.hbs', {
             layout : 'index',
             clients: clients,
             error: false
         });
     } else {
-        // If client with the specified ID is not found, return 404 Not Found
         res.status(404).json({ error: `Client with ID ${id} not found` });
     }
 });
-app.get('/edit_client/:id', (req, res) => {
+app.get('/edit_client/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     console.log(`client edit request ${id}`)
     // get client data by id
-    const client = clients[id - 1]
+    // const client = clients[id - 1]
+    var client = await pool.query('select * from Accounts where id = ?;', id);
 
-    if (!client) {
+    if (client.length == 0) {
         return res.status(404).render('404.hbs', {layout : 'index'});
     }
 
+    const cities = await pool.query('select * from Cities;');
+    const countries = await pool.query('select * from Countries;');
+
+    client[0].birthdate = convertMariadbTimestamp(client[0].birthdate);
+    client[0].issueDate = convertMariadbTimestamp(client[0].issueDate);
+
+    console.log(client[0]);
+    console.log("entering edit mode");
     res.render('add_client.hbs', {
         layout : 'index',
-        client: client
+        client: client[0],
+        cities: cities,
+        countries: countries
     });
 });
-app.post('/edit_client/:id', (req, res) => {
+app.post('/edit_client/:id', async (req, res) => {
         const id = parseInt(req.params.id);
         console.log(`client fuck request ${id}`)
         // get client data by id
-        const client = Object.assign({}, req.body);
-        client.id = id // >??????
-        // if success
-        clients[id-1] = client
-        //res.redirect(`/clients`);
-        res.render('add_client.hbs', {layout : 'index', error: false, client: client});
+        const formData = Object.assign({}, req.body);
+        var data:any = await pool.query('select id from Accounts where id = ?;', id)
+        const cities = await pool.query('select * from Cities;');
+        const countries = await pool.query('select * from Countries;');
+        if (data.length > 0)
+        {
+            await pool.query('update Accounts SET surname = ?, name = ?, patronymic = ?, birthdate = ?, passportSeries = ?, passportNumber = ?, issuedBy = ?, issueDate = ?, identificationNumber = ?, placeOfBirth = ?, residenceCity = ?, residenceAddress = ?, homePhone = ?, mobilePhone = ?, email = ?, maritalStatus = ?, citizenship = ?, disability = ?, pensioner = ?, monthlyIncome = ?, mil_status = ?, place_of_work = ?, work_role = ? WHERE id = ?', [formData.surname, formData.name, formData.patronymic, formData.birthdate, formData.passportSeries, formData.passportNumber, formData.issuedBy, formData.issueDate, formData.identificationNumber, formData.placeOfBirth, formData.residenceCity, formData.residenceAddress, formData.homePhone, formData.mobilePhone, formData.email, formData.maritalStatus, formData.citizenship, formData.disability, formData.pensioner, formData.monthlyIncome, formData.mil_status, formData.place_of_work, formData.work_role, id]);
+
+            res.render('add_client.hbs', {layout : 'index', error: false, client: formData, cities:cities, countries:countries});
+        }
+        else
+        {
+            res.render('add_client.hbs', {layout : 'index', error: true, client: formData, cities:cities, countries:countries});
+        }
     }
 );
 

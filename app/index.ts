@@ -149,8 +149,19 @@ app.get('/accounts', async (req,res) => {
     });
 });
 app.get('/clients', async (req,res) => {
-    const sql = await pool.query('select * from Accounts;');
+    var sql = await pool.query('select Accounts.*, pob.name_city as pob, res.name_city as res, reg.name_city as reg, ctzn.name_country as ctzn from Accounts join Cities as pob on Accounts.placeOfBirth = pob.id_city join Cities as res on Accounts.residenceCity = res.id_city join Cities as reg on Accounts.registrationCity = reg.id_city join Countries as ctzn on Accounts.citizenship = ctzn.id_country;');
+    sql.forEach((entry:any) => {
+        var d:Date = new Date(entry.birthdate);
+        entry.birthdate = d.toLocaleDateString();
 
+        d = new Date(entry.issueDate);
+        entry.issueDate = d.toLocaleDateString();
+
+        entry.disability = (entry.disability == 'y') ? "да" : "нет";
+        entry.pensioner = (entry.pensioner == 'y') ? "да" : "нет";
+        entry.mil_status = (entry.mil_status == 'y') ? "да" : "нет";
+
+    });
     res.render('clients.hbs', {
         layout : 'index',
         clients: sql

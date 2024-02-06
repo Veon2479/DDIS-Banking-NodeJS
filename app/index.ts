@@ -5,6 +5,7 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import * as helpers from '../helpers/helpers.js'
 //import {Controller} from "./entities/controller.js";
+import db from 'mariadb';
 
 // get current filename and directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,20 @@ app.use(express.urlencoded({extended: false}));
 app.use(express.json())
 app.use(express.static(server_root));
 app.use('/attachments', express.static(server_attachments))
+
+//create db connection
+const pool = db.createPool({
+    host: "192.168.56.103",
+    user: "andmin",
+    password: "1234567890",
+    database: "db_bank"
+});
+
+(async () => {
+    var res = await pool.query('show tables;');
+    console.log("DB tables:");
+    console.log(res);
+})();
 
 // create server
 const server = http.createServer(app);
@@ -65,7 +80,7 @@ const clients: any[] = [
     }
 ]
 
-app.get('/',(req,res) => {
+app.get('/', (req,res) => {
     res.render('main.hbs', {layout : 'index'});
 });
 app.get('/add_client',(req,res) => {
@@ -112,7 +127,8 @@ app.post('/credit',(req,res) => {
     res.render('credit.hbs', {layout : 'index', error: false});
 });
 
-app.get('/accounts',(req,res) => {
+app.get('/accounts', async (req,res) => {
+
     res.render('accounts.hbs', {
         layout : 'index',
         accounts: [
@@ -129,12 +145,15 @@ app.get('/accounts',(req,res) => {
                 "accountNo": "001",
                 "controlNo": "X"
             }
-        ]});
+        ]
+    });
 });
-app.get('/clients',(req,res) => {
+app.get('/clients', async (req,res) => {
+    const sql = await pool.query('select * from Accounts;');
+
     res.render('clients.hbs', {
         layout : 'index',
-        clients: clients
+        clients: sql
     });
 });
 app.delete('/clients/:id', (req, res) => {

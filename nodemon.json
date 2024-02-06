@@ -1,0 +1,5 @@
+{
+  "watch": ["app", "helpers", "public", "views"],
+  "ext": "ts,js,hbs,css",
+  "exec": "tsx ./app/index.ts"
+}
